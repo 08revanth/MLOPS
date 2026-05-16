@@ -1,0 +1,10 @@
+venv/
+api/
+models/
+data/
+src/
+mlruns/
+requirements.txt
+*.py
+*.h5
+*.keras
