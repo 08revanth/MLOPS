@@ -1,0 +1,10 @@
+{
+  "cleanUrls": true,
+  "outputDirectory": "./",
+  "rules": [
+    {
+      "src": "/api/(.*)",
+      "dest": "http://0.0.0.0" 
+    }
+  ]
+}
