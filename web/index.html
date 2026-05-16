@@ -1,0 +1,1261 @@
+!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Diabetic Retinopathy — The Full Story</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#03030a;--white:#eceef7;--dim:rgba(236,238,247,0.55);--blood:#c0392b}
+body{background:var(--bg);color:var(--white);font-family:'Syne',sans-serif;overflow-x:hidden}
+#canvas{position:fixed;inset:0;z-index:0}
+#scroll-driver{height:1600vh;position:relative}
+#ui{position:fixed;inset:0;z-index:10;pointer-events:none}
+#graph-labels{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity 0.8s;
+}
+
+#graph-labels.visible{
+  opacity:1;
+}
+
+/* Y AXIS LABEL */
+.g-y-label{
+  position:absolute;
+
+  right:54.8vw;   /* moved slightly right */
+  top:41%;
+
+  transform:rotate(-90deg);
+
+  font-family:'DM Mono',monospace;
+  font-size:9px;
+  letter-spacing:4px;
+
+  color:rgba(236,238,247,0.28);
+
+  text-transform:uppercase;
+}
+
+/* X AXIS LABEL */
+.g-x-label{
+  position:absolute;
+
+  right:20vw;
+  bottom:16.8%;   /* slightly higher */
+
+  font-family:'DM Mono',monospace;
+  font-size:9px;
+  letter-spacing:4px;
+
+  color:rgba(236,238,247,0.28);
+
+  text-transform:uppercase;
+}
+
+/* ACCURACY LABEL */
+.g-acc-label{
+  position:absolute;
+
+  right:15vw;
+  top:30.2%;
+
+  font-family:'DM Mono',monospace;
+  font-size:10px;
+  letter-spacing:3px;
+
+  color:#4ade80;
+
+  text-transform:uppercase;
+}
+
+/* LOSS LABEL */
+.g-loss-label{
+  position:absolute;
+
+  right:23vw;
+  bottom:22.8%;
+
+  font-family:'DM Mono',monospace;
+  font-size:10px;
+  letter-spacing:3px;
+
+  color:#f87171;
+
+  text-transform:uppercase;
+}
+
+#scene-label{
+  position:absolute;top:36px;left:50%;transform:translateX(-50%);
+  font-family:'DM Mono',monospace;font-size:10px;letter-spacing:5px;
+  text-transform:uppercase;color:rgba(236,238,247,0.8);opacity:0;transition:opacity 0.8s;
+  text-shadow:0 1px 14px #000,0 0 28px #000
+}
+#scene-label.visible{opacity:1}
+
+.scene-card{
+  position:absolute;left:7vw;top:50%;transform:translateY(-50%);
+  max-width:370px;opacity:0;transition:opacity 0.9s
+}
+.scene-card.right{left:auto;right:6vw}
+.scene-card.center{left:50%;transform:translate(-50%,-50%);text-align:center;max-width:580px}
+.scene-card.visible{opacity:1}
+.sc-label{
+  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:4px;text-transform:uppercase;
+  color:rgba(236,238,247,0.65);margin-bottom:10px;
+  text-shadow:0 1px 10px #000
+}
+.sc-title{
+  font-size:clamp(26px,3.8vw,52px);font-weight:800;line-height:1.05;letter-spacing:-1px;margin-bottom:14px;
+  text-shadow:0 2px 22px #000,0 0 44px #000;color:#eceef7
+}
+.sc-body{
+  font-size:13px;line-height:1.9;color:rgba(236,238,247,0.75);
+  font-family:'DM Mono',monospace;text-shadow:0 1px 12px #000
+}
+
+/* ── UPGRADED CALLOUT HUD CSS ── */
+.callout {
+  position: absolute; opacity: 0; transition: opacity 0.7s; pointer-events: none;
+  display: flex;
+}
+.callout.visible { opacity: 1; }
+.callout-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--white);
+  box-shadow: 0 0 10px rgba(236,238,247,0.8); flex-shrink: 0;
+}
+.callout-content { display: flex; flex-direction: column; }
+.callout-text { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:3px; text-transform:uppercase; color:rgba(236,238,247,0.9); white-space:nowrap; text-shadow:0 1px 10px #000; }
+.callout-sub { font-family:'DM Mono',monospace; font-size:9px; color:rgba(236,238,247,0.55); margin-top:3px; line-height:1.6; text-shadow:0 1px 8px #000; }
+
+#disease-alert{position:absolute;left:50%;top:12%;transform:translateX(-50%);text-align:center;opacity:0;transition:opacity 1s}
+#disease-alert.visible{opacity:1}
+.alert-tag{
+  font-family:'DM Mono',monospace;font-size:10px;letter-spacing:4px;text-transform:uppercase;
+  color:var(--blood);border:1px solid rgba(192,57,43,0.4);padding:6px 16px;border-radius:2px;
+  display:inline-block;margin-bottom:14px;animation:alertPulse 2.5s ease-in-out infinite;
+  text-shadow:0 1px 8px #000;background:rgba(0,0,0,0.45)
+}
+@keyframes alertPulse{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0)}50%{box-shadow:0 0 0 6px rgba(192,57,43,0.14)}}
+.alert-headline{font-size:clamp(24px,3.5vw,44px);font-weight:800;line-height:1.1;text-shadow:0 2px 22px #000}
+.alert-sub{font-family:'DM Mono',monospace;font-size:12px;line-height:1.85;color:rgba(236,238,247,0.75);margin-top:12px;text-shadow:0 1px 12px #000}
+
+#ml-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(680px,88vw);opacity:0;transition:opacity 0.9s;text-align:center}
+#ml-panel.visible{opacity:1}
+
+#sev-scale{position:absolute;bottom:13%;left:50%;transform:translateX(-50%);display:flex;gap:0;opacity:0;transition:opacity 0.8s}
+#sev-scale.visible{opacity:1}
+.sev-cell{display:flex;flex-direction:column;align-items:center;gap:7px;padding:10px 14px;border:1px solid rgba(236,238,247,0.1);border-right:none;min-width:86px}
+.sev-cell:last-child{border-right:1px solid rgba(236,238,247,0.1)}
+.sev-dot{width:8px;height:8px;border-radius:50%}
+.sev-label{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:3px;text-transform:uppercase;color:rgba(236,238,247,0.5);text-shadow:0 1px 6px #000}
+.sev-pct{font-family:'DM Mono',monospace;font-size:12px;color:rgba(236,238,247,0.85);text-shadow:0 1px 6px #000}
+
+#metrics-panel{position:absolute;right:7vw;top:50%;transform:translateY(-50%);opacity:0;transition:opacity 0.9s;text-align:right}
+#metrics-panel.visible{opacity:1}
+.metric-row{margin-bottom:24px}
+.metric-name{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:4px;text-transform:uppercase;color:rgba(236,238,247,0.45);text-shadow:0 1px 6px #000}
+.metric-val{font-size:clamp(28px,3.8vw,52px);font-weight:800;letter-spacing:-2px;text-shadow:0 2px 20px #000}
+
+#upload-zone{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);opacity:0;transition:opacity 0.9s;pointer-events:none;width:min(460px,84vw);text-align:center}
+#upload-zone.visible{opacity:1;pointer-events:all}
+#drop-area{border:1px dashed rgba(236,238,247,0.22);border-radius:3px;padding:40px 28px;cursor:pointer;transition:border-color 0.2s;margin-bottom:16px;background:rgba(236,238,247,0.02)}
+#drop-area:hover{border-color:rgba(236,238,247,0.5)}
+#drop-area input{display:none}
+.upload-icon{font-size:28px;margin-bottom:12px;opacity:0.4}
+.upload-text{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(236,238,247,0.5)}
+#result-box{display:none;border:1px solid rgba(236,238,247,0.14);border-radius:3px;padding:22px 26px;background:rgba(3,3,10,0.72);backdrop-filter:blur(14px)}
+#result-box.show{display:block}
+.result-grade{font-size:clamp(22px,3.8vw,42px);font-weight:800;margin-bottom:8px;text-shadow:0 2px 16px #000}
+.result-sub{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(236,238,247,0.45)}
+.result-bar-wrap{height:2px;background:rgba(236,238,247,0.08);border-radius:2px;margin-top:14px}
+.result-bar{height:100%;border-radius:2px;transition:width 1.3s cubic-bezier(0.23,1,0.32,1)}
+
+#nav{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:10px;align-items:center;pointer-events:all}
+.nav-btn{background:rgba(3,3,10,0.72);border:1px solid rgba(236,238,247,0.2);color:var(--white);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;padding:9px 20px;border-radius:2px;cursor:pointer;transition:all 0.2s;backdrop-filter:blur(14px)}
+.nav-btn:hover{background:rgba(236,238,247,0.1);border-color:rgba(236,238,247,0.4)}
+#scene-counter{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:rgba(236,238,247,0.75);padding:0 8px}
+
+#dots{position:fixed;right:20px;top:50%;transform:translateY(-50%);z-index:20;display:flex;flex-direction:column;gap:8px;pointer-events:all}
+.dot{width:6px;height:6px;border-radius:50%;background:rgba(236,238,247,0.18);cursor:pointer;border:1px solid rgba(236,238,247,0.24);transition:all 0.3s}
+.dot.active{background:var(--white);transform:scale(1.6);box-shadow:0 0 8px rgba(236,238,247,0.5)}
+.dot:hover{background:rgba(236,238,247,0.5)}
+
+#scroll-hint{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);z-index:20;text-align:center;pointer-events:none;opacity:0;transition:opacity 0.6s;animation:hintPulse 2.4s ease-in-out infinite}
+#scroll-hint.visible{opacity:1}
+@keyframes hintPulse{0%,100%{opacity:0.28}50%{opacity:0.85}}
+#scroll-hint .line{width:1px;height:34px;background:linear-gradient(to bottom,transparent,rgba(236,238,247,0.5));margin:0 auto}
+#scroll-hint p{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:4px;color:rgba(236,238,247,0.65);margin-top:8px;text-shadow:0 1px 6px #000}
+
+#act-transition{position:absolute;left:50%;top:12%;transform:translateX(-50%);text-align:center;opacity:0;transition:opacity 0.9s;pointer-events:none}
+#act-transition.visible{opacity:1}
+.act-tag{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:5px;text-transform:uppercase;color:rgba(236,238,247,0.45);border:1px solid rgba(236,238,247,0.12);padding:5px 14px;border-radius:2px;display:inline-block;text-shadow:0 1px 6px #000}
+
+#loader{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity 1s}
+#loader.hidden{opacity:0;pointer-events:none}
+.loader-text{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:6px;color:rgba(236,238,247,0.55);text-transform:uppercase}
+.loader-bar-wrap{width:180px;height:1px;background:rgba(236,238,247,0.08)}
+.loader-bar{height:100%;background:var(--white);width:0%;transition:width 0.4s}
+
+#aug-ui{
+  position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:100%;display:flex;align-items:center;justify-content:center;
+  gap:8vw;opacity:0;transition:opacity 0.9s;pointer-events:none;
+}
+#aug-ui.visible{opacity:1}
+#aug-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;flex-shrink:0;
+}
+.aug-tile{
+  width:110px;height:110px;border:1px solid rgba(236,238,247,0.12);border-radius:4px;
+  background:rgba(236,238,247,0.03);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;
+}
+.aug-tile canvas{width:72px;height:72px;border-radius:2px}
+.aug-tile-label{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:rgba(236,238,247,0.45)}
+#aug-text{max-width:320px;flex-shrink:0}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="loader-text">Rendering</div>
+  <div class="loader-bar-wrap"><div class="loader-bar" id="lbar"></div></div>
+  <div class="loader-text" id="lsub" style="font-size:9px;opacity:0.45">Building eye…</div>
+</div>
+
+<canvas id="canvas"></canvas>
+<div id="scroll-driver"></div>
+
+<div id="ui">
+    <div id="graph-labels">
+
+  <div class="g-y-label">METRIC VALUE</div>
+
+  <div class="g-x-label">EPOCHS</div>
+
+  <div class="g-acc-label">Accuracy</div>
+
+  <div class="g-loss-label">Loss</div>
+
+</div>
+  <div id="scene-label">Scene 01 — The Human Eye</div>
+
+  <!-- ── FIX 1: HIGH-TECH SVG CALLOUTS ── -->
+  <!-- SCLERA (Points Left) -->
+  <div class="callout" id="co-sclera" style="right: 60%; top: 40%; align-items: center; justify-content: flex-end;">
+    <div class="callout-content" style="text-align: right;">
+      <div class="callout-text">Sclera</div>
+      <div class="callout-sub">Protective white<br>outer coating</div>
+    </div>
+    <svg style="width: 5vw; height: 2px; margin: 0 10px; overflow: visible;">
+      <line x1="0" y1="1" x2="100%" y2="1" stroke="rgba(236,238,247,0.5)" stroke-width="1" />
+    </svg>
+    <div class="callout-dot"></div>
+  </div>
+
+  <!-- IRIS (Points Right) -->
+  <div class="callout" id="co-iris" style="left: 52%; top: 38%; align-items: center;">
+    <div class="callout-dot"></div>
+    <svg style="width: 5vw; height: 2px; margin: 0 10px; overflow: visible;">
+      <line x1="0" y1="1" x2="100%" y2="1" stroke="rgba(236,238,247,0.5)" stroke-width="1" />
+    </svg>
+    <div class="callout-content">
+      <div class="callout-text">Iris</div>
+      <div class="callout-sub">Controls pupil dilation,<br>regulates light intake</div>
+    </div>
+  </div>
+
+  <!-- CORNEA (Points Down-Right with angled line) -->
+  <div class="callout" id="co-cornea" style="left: 52%; top: 54%; align-items: flex-start;">
+    <div class="callout-dot" style="transform: translateY(-3px)"></div>
+    <svg style="width: 4vw; height: 6vh; margin: 0 10px; overflow: visible;">
+      <line x1="0" y1="0" x2="100%" y2="100%" stroke="rgba(236,238,247,0.5)" stroke-width="1" />
+      <line x1="100%" y1="100%" x2="130%" y2="100%" stroke="rgba(236,238,247,0.5)" stroke-width="1" />
+    </svg>
+    <div class="callout-content" style="margin-top: calc(6vh - 10px);">
+      <div class="callout-text">Cornea</div>
+      <div class="callout-sub">Transparent dome,<br>primary refractive surface</div>
+    </div>
+  </div>
+
+  <div class="scene-card" id="sc0">
+    <div class="sc-label">Scene 01 — The Human Eye</div>
+    <div class="sc-title">This is<br>an eye.</div>
+    <div class="sc-body">39 million people are blind worldwide.<br>A significant portion — from a disease<br>that is almost entirely preventable,<br>if caught early enough.</div>
+  </div>
+  <div class="scene-card" id="sc1">
+    <div class="sc-label">Scene 02 — Approaching</div>
+    <div class="sc-title">The window<br>to the retina.</div>
+    <div class="sc-body">The pupil is not a structure — it is an opening.<br>A portal into the interior of the eye,<br>where the magic of vision is processed.</div>
+  </div>
+  <div class="scene-card right" id="sc3">
+    <div class="sc-label">Scene 03 — The Retina</div>
+    <div class="sc-title" style="color:#e8b4a0">The<br>Retina.</div>
+    <div class="sc-body">A thin sheet of light-sensitive tissue<br>lining the back of the eye.<br><br>This is where images form.<br>Where light becomes signal.<br>Where sight begins.</div>
+  </div>
+  <div class="scene-card right" id="sc4">
+    <div class="sc-label">Scene 04 — Blood Supply</div>
+    <div class="sc-title" style="color:#cc6655">Blood<br>Vessels.</div>
+    <div class="sc-body", style="color: black;">A dense network of arteries and veins<br>radiates from the optic disc,<br>supplying oxygen to every photoreceptor.<br><br>The retina is entirely dependent<br>on this fragile vascular network.</div>
+  </div>
+  <div id="disease-alert">
+    <div class="alert-tag">⚠ Diabetic Retinopathy</div>
+    <div class="alert-headline">The vessels<br>begin to fail.</div>
+    <div class="alert-sub", style="color: black;">High blood sugar weakens capillary walls.<br>They swell into microaneurysms.<br>They rupture. They bleed.<br>The retina starves of oxygen.</div>
+  </div>
+  <div class="scene-card center" id="sc6">
+    <div class="sc-label">Scene 06 — Early Detection</div>
+    <div class="sc-title" style="font-size:clamp(24px,3.5vw,48px)">Preventable.<br>If detected in time.</div>
+    <div class="sc-body" style="font-size:14px;max-width:440px;margin:0 auto; color : black;">Diabetic retinopathy is the leading cause<br>of preventable blindness in working-age adults.<br><br>We are building a system to detect it —<br>from a single retinal photograph.</div>
+  </div>
+
+  <div id="act-transition">
+    <div class="act-tag">Part II — The Machine Learning Pipeline</div>
+  </div>
+
+  <div class="scene-card center" id="sc7">
+    <div class="sc-label">Act 05 — From Retina to Data</div>
+    <div class="sc-title">A photograph<br>of the retina.</div>
+    <div class="sc-body">A fundus camera captures the back of the eye —<br>the same retina we just explored.<br><br>This image is the input to everything.<br>1,500 photographs. Five severity grades.</div>
+  </div>
+  <div class="scene-card" id="sc8">
+    <div class="sc-label">Act 05 — Class Distribution</div>
+    <div class="sc-title">An imbalanced<br>dataset.</div>
+    <div class="sc-body">Almost half the images show no disease.<br>Severe cases are rare.<br><br>The model must learn to find<br>needles in a haystack.</div>
+  </div>
+  <div id="sev-scale">
+    <div class="sev-cell"><div class="sev-dot" style="background:#4ade80"></div><div class="sev-label">No DR</div><div class="sev-pct">49%</div></div>
+    <div class="sev-cell"><div class="sev-dot" style="background:#facc15"></div><div class="sev-label">Mild</div><div class="sev-pct">9%</div></div>
+    <div class="sev-cell"><div class="sev-dot" style="background:#fb923c"></div><div class="sev-label">Moderate</div><div class="sev-pct">27%</div></div>
+    <div class="sev-cell"><div class="sev-dot" style="background:#f87171"></div><div class="sev-label">Severe</div><div class="sev-pct">5%</div></div>
+    <div class="sev-cell"><div class="sev-dot" style="background:#c0392b"></div><div class="sev-label">Prolif.</div><div class="sev-pct">10%</div></div>
+  </div>
+
+  <div id="aug-ui">
+    <div id="aug-grid">
+      <div class="aug-tile"><canvas id="aug-c0" width="72" height="72"></canvas><div class="aug-tile-label">Original</div></div>
+      <div class="aug-tile"><canvas id="aug-c1" width="72" height="72"></canvas><div class="aug-tile-label">Rotated</div></div>
+      <div class="aug-tile"><canvas id="aug-c2" width="72" height="72"></canvas><div class="aug-tile-label">Flipped</div></div>
+      <div class="aug-tile"><canvas id="aug-c3" width="72" height="72"></canvas><div class="aug-tile-label">Zoomed</div></div>
+    </div>
+    <div id="aug-text">
+      <div class="sc-label">Act 06 — Preprocessing & Augmentation</div>
+      <div class="sc-title">Resize.<br>Normalise.<br>Augment.</div>
+      <div class="sc-body">Resize to 300×300px.<br>Pixel values normalised to [0, 1].<br><br>Augmentation multiplies data diversity:<br>rotation, zoom, horizontal flip —<br>making the model robust to orientation.</div>
+    </div>
+  </div>
+
+  <div class="scene-card" id="sc10">
+    <div class="sc-label">Act 07 — Architecture</div>
+    <div class="sc-title">Efficient-<br>NetB3.</div>
+    <div class="sc-body">A compound-scaled convolutional network<br>pre-trained on ImageNet.<br><br>Transfer learning: the backbone already knows<br>edges, textures, shapes —<br>we teach it what bleeding looks like.</div>
+  </div>
+  <div class="scene-card" id="sc11">
+    <div class="sc-label">Act 08 — Training</div>
+    <div class="sc-title">The model<br>learns.</div>
+    <div class="sc-body">Adam optimiser. Categorical cross-entropy.<br>ReduceLROnPlateau + early stopping.<br><br>The loss descends.<br>The accuracy climbs.</div>
+  </div>
+  <div class="scene-card" id="sc12">
+    <div class="sc-label">Act 08 — Evaluation</div>
+    <div class="sc-title">Reliability<br>Testing.</div>
+    <div class="sc-body">
+      We prioritize the <b>Quadratic Weighted Kappa</b> over raw accuracy. 
+      This clinical metric penalizes "dangerous misses" more heavily, 
+      ensuring the model is safe for medical decision support.
+    </div>
+  </div>
+  <div id="metrics-panel">
+    <div class="metric-row"><div class="metric-name">Overall Accuracy</div><div class="metric-val" id="mv-acc" style="color:#4ade80">45.2%</div></div>
+    <div class="metric-row"><div class="metric-name">Kappa Score</div><div class="metric-val" id="mv-f1" style="color:#60a5fa">0.206</div></div>
+    <div class="metric-row"><div class="metric-name">Prolif. Recall</div><div class="metric-val" id="mv-auc" style="color:#f59e0b">0.370</div></div>
+  </div>
+  <div id="upload-zone">
+    <div class="sc-label" style="text-align:center;margin-bottom:16px;display:block">Act 09 — Live Deployment</div>
+    <div class="sc-title" style="text-align:center;font-size:clamp(20px,3vw,40px);margin-bottom:22px">FastAPI Inference.</div>
+    <div class="sc-body" style="text-align:center; margin-bottom: 20px;">
+        Upload a fundus image to test the live REST API server.<br>
+        The system returns severity level and confidence in real-time.
+    </div>
+    <div id="drop-area" onclick="document.getElementById('file-in').click()">
+      <input type="file" id="file-in" accept="image/*" onchange="handleFile(this.files[0])">
+      <div class="upload-icon">⊕</div>
+      <div class="upload-text">Click to Predict via API</div>
+    </div>
+    <div id="result-box">
+      <div class="result-grade" id="result-grade"></div>
+      <div class="result-sub" id="result-sub"></div>
+      <div class="result-bar-wrap"><div class="result-bar" id="result-bar"></div></div>
+    </div>
+  </div>
+    <div id="result-box">
+      <div class="result-grade" id="result-grade"></div>
+      <div class="result-sub" id="result-sub"></div>
+      <div class="result-bar-wrap"><div class="result-bar" id="result-bar"></div></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="nav">
+  <button class="nav-btn" id="btn-prev">← Prev</button>
+  <span id="scene-counter">01 / 14</span>
+  <button class="nav-btn" id="btn-next">Next →</button>
+</div>
+<div id="dots"></div>
+
+<div id="scroll-hint" class="visible">
+  <div class="line"></div>
+  <p>Scroll</p>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js';
+
+const lerp=(a,b,t)=>a+(b-a)*t;
+const easeInOut=t=>t<0.5?2*t*t:-1+(4-2*t)*t;
+const easeOut3=t=>1-(1-t)**3;
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+
+const canvas=document.getElementById('canvas');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.setClearColor(0x03030a);
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.15;
+
+const world=new THREE.Scene();
+world.fog=new THREE.FogExp2(0x03030a,0.007);
+
+const camera=new THREE.PerspectiveCamera(50,window.innerWidth/window.innerHeight,0.001,300);
+camera.position.set(0,0,5.5);
+
+const keyL=new THREE.DirectionalLight(0xffe8d0,3.2);keyL.position.set(3,2,5);world.add(keyL);
+const fillL=new THREE.DirectionalLight(0x99bbff,0.7);fillL.position.set(-4,1,2);world.add(fillL);
+const rimL=new THREE.DirectionalLight(0xffd0a0,0.9);rimL.position.set(0,-3,-5);world.add(rimL);
+world.add(new THREE.AmbientLight(0x1a1a2e,1.5));
+const retinaL=new THREE.PointLight(0xff7040,0,5);retinaL.position.set(0,0,-0.65);world.add(retinaL);
+const diseaseL=new THREE.PointLight(0xcc1100,0,4);diseaseL.position.set(0,0,-0.5);world.add(diseaseL);
+const tealL=new THREE.PointLight(0x0fd4c8,0,20);tealL.position.set(-5,2,3);world.add(tealL);
+const amberL=new THREE.PointLight(0xf59e0b,0,20);amberL.position.set(5,-2,3);world.add(amberL);
+
+{
+  const g=new THREE.BufferGeometry();
+  const p=new Float32Array(18000);
+  for(let i=0;i<18000;i++) p[i]=(Math.random()-0.5)*200;
+  g.setAttribute('position',new THREE.BufferAttribute(p,3));
+  world.add(new THREE.Points(g,new THREE.PointsMaterial({color:0x8899cc,size:0.055,transparent:true,opacity:0.22})));
+}
+
+function makeIrisTex(){
+  const S=512,c=document.createElement('canvas');c.width=c.height=S;
+  const x=c.getContext('2d'),cx=S/2,cy=S/2;
+  x.fillStyle='#000';x.fillRect(0,0,S,S);
+  const g=x.createRadialGradient(cx,cy,56,cx,cy,238);
+  g.addColorStop(0,'#4a70aa');g.addColorStop(0.15,'#3560a0');
+  g.addColorStop(0.45,'#1e4278');g.addColorStop(0.80,'#0e2f60');g.addColorStop(1,'#061a3a');
+  x.fillStyle=g;x.beginPath();x.arc(cx,cy,238,0,Math.PI*2);x.fill();
+  for(let a=0;a<360;a+=1.2){
+    const r=a*Math.PI/180,ir=60+Math.random()*8,or=182+Math.random()*40;
+    x.beginPath();x.moveTo(cx+Math.cos(r)*ir,cy+Math.sin(r)*ir);
+    x.lineTo(cx+Math.cos(r+0.015)*or,cy+Math.sin(r+0.015)*or);
+    x.strokeStyle=`rgba(130,180,240,${0.06+Math.random()*0.11})`;
+    x.lineWidth=0.4+Math.random()*0.8;x.stroke();
+  }
+  for(let i=0;i<28;i++){
+    const a=(i/28)*Math.PI*2+Math.random()*0.3,r=65+Math.random()*100;
+    x.beginPath();x.arc(cx+Math.cos(a)*r,cy+Math.sin(a)*r,4+Math.random()*12,0,Math.PI*2);
+    x.fillStyle='rgba(4,10,35,0.4)';x.fill();
+  }
+  x.beginPath();x.arc(cx,cy,82,0,Math.PI*2);x.strokeStyle='rgba(80,140,220,0.35)';x.lineWidth=6;x.stroke();
+  x.beginPath();x.arc(cx,cy,60,0,Math.PI*2);x.fillStyle='#000';x.fill();
+  const ld=x.createRadialGradient(cx,cy,165,cx,cy,238);
+  ld.addColorStop(0,'rgba(0,0,0,0)');ld.addColorStop(1,'rgba(0,0,0,0.78)');
+  x.fillStyle=ld;x.beginPath();x.arc(cx,cy,238,0,Math.PI*2);x.fill();
+  const hg=x.createRadialGradient(cx-58,cy-58,0,cx-58,cy-58,34);
+  hg.addColorStop(0,'rgba(255,255,255,0.9)');hg.addColorStop(0.4,'rgba(255,255,255,0.45)');
+  hg.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=hg;x.beginPath();x.arc(cx-58,cy-58,34,0,Math.PI*2);x.fill();
+  const hg2=x.createRadialGradient(cx+42,cy-62,0,cx+42,cy-62,13);
+  hg2.addColorStop(0,'rgba(255,255,255,0.4)');hg2.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=hg2;x.beginPath();x.arc(cx+42,cy-62,13,0,Math.PI*2);x.fill();
+  const t=new THREE.CanvasTexture(c);t.needsUpdate=true;return t;
+}
+
+function makeScleraTex(){
+  const S=512,c=document.createElement('canvas');c.width=c.height=S;
+  const x=c.getContext('2d');
+  x.fillStyle='#f0ece6';x.fillRect(0,0,S,S);
+  for(let i=0;i<30;i++){
+    const px=Math.random()*S,py=Math.random()*S,len=15+Math.random()*95,ang=Math.random()*Math.PI*2;
+    const mx=px+Math.cos(ang)*len*0.4+(Math.random()-0.5)*14,my=py+Math.sin(ang)*len*0.4+(Math.random()-0.5)*14;
+    x.beginPath();x.moveTo(px,py);x.quadraticCurveTo(mx,my,px+Math.cos(ang)*len,py+Math.sin(ang)*len);
+    x.strokeStyle=`rgba(175,65,50,${0.04+Math.random()*0.09})`;x.lineWidth=0.4+Math.random()*1.1;x.stroke();
+  }
+  const t=new THREE.CanvasTexture(c);t.needsUpdate=true;return t;
+}
+
+function makeRetinaTex(){
+  const S=1024,c=document.createElement('canvas');c.width=c.height=S;
+  const x=c.getContext('2d'),cx=S/2,cy=S/2;
+  const bg=x.createRadialGradient(cx,cy,0,cx,cy,S/2);
+  bg.addColorStop(0,'#cc6848');bg.addColorStop(0.35,'#b05030');bg.addColorStop(0.7,'#883820');bg.addColorStop(1,'#481408');
+  x.fillStyle=bg;x.fillRect(0,0,S,S);
+  for(let i=0;i<1800;i++){
+    const px=Math.random()*S,py=Math.random()*S;
+    x.beginPath();x.arc(px,py,1+Math.random()*3.5,0,Math.PI*2);
+    x.fillStyle=`rgba(${Math.random()>0.5?195:70},${35+Math.random()*25},${15+Math.random()*15},${0.03+Math.random()*0.06})`;x.fill();
+  }
+  const mac=x.createRadialGradient(cx,cy,0,cx,cy,115);
+  mac.addColorStop(0,'#2c0a04');mac.addColorStop(0.3,'#521408');mac.addColorStop(1,'rgba(70,18,8,0)');
+  x.fillStyle=mac;x.beginPath();x.arc(cx,cy,115,0,Math.PI*2);x.fill();
+  const fov=x.createRadialGradient(cx,cy,0,cx,cy,20);
+  fov.addColorStop(0,'rgba(215,130,90,0.8)');fov.addColorStop(1,'rgba(215,130,90,0)');
+  x.fillStyle=fov;x.beginPath();x.arc(cx,cy,20,0,Math.PI*2);x.fill();
+  const dx=cx+200,dy=cy+8;
+  const disc=x.createRadialGradient(dx,dy,0,dx,dy,65);
+  disc.addColorStop(0,'#ffeedd');disc.addColorStop(0.4,'#f0c890');disc.addColorStop(0.8,'rgba(200,125,75,0.4)');disc.addColorStop(1,'rgba(180,95,55,0)');
+  x.fillStyle=disc;x.beginPath();x.ellipse(dx,dy,65,75,0,0,Math.PI*2);x.fill();
+  const cup=x.createRadialGradient(dx,dy,0,dx,dy,30);
+  cup.addColorStop(0,'#fff8ee');cup.addColorStop(1,'rgba(255,240,220,0)');
+  x.fillStyle=cup;x.beginPath();x.ellipse(dx,dy,30,35,0,0,Math.PI*2);x.fill();
+  const t=new THREE.CanvasTexture(c);t.needsUpdate=true;return t;
+}
+
+// ══════════════════════════════════════════════
+// EYE GROUP
+// ══════════════════════════════════════════════
+const eyeGroup=new THREE.Group();world.add(eyeGroup);
+
+const scleraGeo = new THREE.SphereGeometry(1.0, 64, 64, 0, Math.PI * 2, 0.455, Math.PI - 0.455);
+
+// SCLERA
+const scleraMat=new THREE.MeshStandardMaterial({
+  map:makeScleraTex(),color:0xf0ece6,roughness:0.5,metalness:0,
+  transparent:true,opacity:1.0
+});
+const scleraMesh=new THREE.Mesh(scleraGeo, scleraMat);
+scleraMesh.rotation.x = Math.PI / 2;
+scleraMesh.renderOrder = 0;
+eyeGroup.add(scleraMesh);
+
+// INNER SCLERA 
+const innerScleraMat=new THREE.MeshStandardMaterial({
+  color:0x110504,roughness:1.0,side:THREE.BackSide,transparent:true,opacity:0
+});
+const innerScleraMesh=new THREE.Mesh(scleraGeo, innerScleraMat);
+innerScleraMesh.rotation.x = Math.PI / 2;
+eyeGroup.add(innerScleraMesh);
+
+// IRIS
+const irisTex=makeIrisTex();
+const irisMat=new THREE.MeshBasicMaterial({
+  map:irisTex,
+  depthTest:true, 
+  depthWrite:true,
+  transparent:true,
+});
+const iris=new THREE.Mesh(new THREE.CircleGeometry(0.416,128),irisMat);
+iris.position.z=0.882;
+iris.renderOrder=1;
+eyeGroup.add(iris);
+
+// LIMBUS
+const limbusMat=new THREE.MeshBasicMaterial({color:0x02020c,depthTest:true,depthWrite:true,transparent:true});
+const limbusObj=new THREE.Mesh(new THREE.TorusGeometry(0.418,0.022,20,128),limbusMat);
+limbusObj.position.set(0,0,0.876);
+limbusObj.renderOrder=1;
+eyeGroup.add(limbusObj);
+
+// CORNEA
+const corneaMat=new THREE.MeshPhysicalMaterial({
+  color:0xe0f0ff,roughness:0.0,metalness:0.0,transparent:true,opacity:0.24,
+  reflectivity:1.0,side:THREE.FrontSide,depthTest:true,depthWrite:false,
+});
+const corneaMesh=new THREE.Mesh(
+  new THREE.SphereGeometry(0.50,64,32,0,Math.PI*2,0,1.1),
+  corneaMat
+);
+corneaMesh.rotation.x=Math.PI / 2;
+corneaMesh.position.z=0.66;
+corneaMesh.renderOrder=2;
+eyeGroup.add(corneaMesh);
+
+// RETINA
+const retinaMat=new THREE.MeshStandardMaterial({
+  map:makeRetinaTex(),roughness:0.65,metalness:0,side:THREE.BackSide,
+  transparent:true,opacity:0,emissive:0x200800,emissiveIntensity:0.25
+});
+eyeGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.975,64,64),retinaMat));
+
+// ── BLOOD VESSELS ──
+const vesselGroup=new THREE.Group();eyeGroup.add(vesselGroup);
+const vesselEndpoints=[];
+function buildVessel(origin,dir,len,rad,depth,col,track){
+  if(depth<0||len<0.006) return;
+  const end=origin.clone().addScaledVector(dir,len);
+  const mid=new THREE.Vector3(
+    (origin.x+end.x)/2+(Math.random()-0.5)*len*0.6,
+    (origin.y+end.y)/2+(Math.random()-0.5)*len*0.6,
+    (origin.z+end.z)/2+(Math.random()-0.5)*len*0.07
+  );
+  const curve=new THREE.CatmullRomCurve3([origin.clone(),mid,end.clone()]);
+  const mat=new THREE.MeshStandardMaterial({color:col,roughness:0.55,metalness:0.12,transparent:true,opacity:0});
+  vesselGroup.add(new THREE.Mesh(new THREE.TubeGeometry(curve,Math.max(4,Math.floor(len*65)),rad,5,false),mat));
+  if(track){vesselEndpoints.push(mid.clone());vesselEndpoints.push(end.clone());}
+  if(depth>0){
+    const cnt=depth>2?2:(Math.random()>0.35?2:1);
+    for(let b=0;b<cnt;b++){
+      const bd=dir.clone().applyEuler(new THREE.Euler((Math.random()-0.5)*1.1,(Math.random()-0.5)*1.1,(Math.random()-0.5)*0.3)).normalize();
+      buildVessel(end.clone(),bd,len*(0.5+Math.random()*0.3),rad*0.63,depth-1,col,track&&depth<=2);
+    }
+  }
+}
+const discOrig=new THREE.Vector3(0.19,0.01,-0.60);
+for(let i=0;i<5;i++){
+  const ang=(i/5)*Math.PI*2;
+  buildVessel(discOrig.clone(),new THREE.Vector3(Math.cos(ang)*0.75+(Math.random()-0.5)*0.2,Math.sin(ang)*0.75+(Math.random()-0.5)*0.2,-0.08).normalize(),0.30,0.0058,4,0xcc3322,true);
+}
+for(let i=0;i<5;i++){
+  const ang=(i/5)*Math.PI*2+Math.PI/5;
+  buildVessel(discOrig.clone(),new THREE.Vector3(Math.cos(ang)*0.75+(Math.random()-0.5)*0.2,Math.sin(ang)*0.75+(Math.random()-0.5)*0.2,-0.06).normalize(),0.26,0.0045,4,0x991a1a,true);
+}
+
+// MICROANEURYSMS
+const microGroup=new THREE.Group();microGroup.visible=false;eyeGroup.add(microGroup);
+for(let i=0;i<40;i++){
+  const base=vesselEndpoints.length?vesselEndpoints[Math.floor(Math.random()*vesselEndpoints.length)]:new THREE.Vector3(0,0,-0.75);
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.003+Math.random()*0.006,8,8),new THREE.MeshBasicMaterial({color:0xdd1100,transparent:true,opacity:0}));
+  m.position.set(base.x+(Math.random()-0.5)*0.08,base.y+(Math.random()-0.5)*0.08,base.z+(Math.random()-0.5)*0.015);
+  m.userData.delay=Math.random()*1400;microGroup.add(m);
+}
+
+// HEMORRHAGES
+const hemGroup=new THREE.Group();hemGroup.visible=false;eyeGroup.add(hemGroup);
+function makeHemTex(){
+  const S=128,c=document.createElement('canvas');c.width=c.height=S;
+  const x=c.getContext('2d'),cx=S/2,cy=S/2;
+  const g=x.createRadialGradient(cx,cy,0,cx,cy,S/2);
+  g.addColorStop(0,'rgba(145,12,6,0.96)');g.addColorStop(0.5,'rgba(95,6,3,0.72)');
+  g.addColorStop(0.85,'rgba(55,2,1,0.32)');g.addColorStop(1,'rgba(35,0,0,0)');
+  x.fillStyle=g;x.beginPath();x.arc(cx,cy,S/2,0,Math.PI*2);x.fill();
+  for(let i=0;i<12;i++){const a=Math.random()*Math.PI*2,r=10+Math.random()*24;x.beginPath();x.arc(cx+Math.cos(a)*r,cy+Math.sin(a)*r,3+Math.random()*10,0,Math.PI*2);x.fillStyle='rgba(115,8,3,0.55)';x.fill();}
+  const t=new THREE.CanvasTexture(c);t.needsUpdate=true;return t;
+}
+const hemTex=makeHemTex();
+for(let i=0;i<8;i++){
+  const sz=0.05+Math.random()*0.09;
+  const mat=new THREE.MeshBasicMaterial({map:hemTex,transparent:true,opacity:0,depthWrite:false});
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(sz,sz),mat);
+  const base=vesselEndpoints.length?vesselEndpoints[Math.floor(Math.random()*vesselEndpoints.length)]:discOrig.clone();
+  m.position.set(base.x+(Math.random()-0.5)*0.06,base.y+(Math.random()-0.5)*0.06,base.z-0.005);
+  m.userData.targetOpacity=0.72+Math.random()*0.24;m.userData.delay=1000+Math.random()*3000;
+  hemGroup.add(m);
+}
+
+const fundusGroup=new THREE.Group();world.add(fundusGroup);
+function makeFundusTex(sevCol){
+  const S=80,c=document.createElement('canvas');c.width=c.height=S;
+  const x=c.getContext('2d'),cx=S/2,cy=S/2;
+  const g=x.createRadialGradient(cx,cy,2,cx,cy,S/2);
+  g.addColorStop(0,'#c45828');g.addColorStop(0.4,'#8c3210');g.addColorStop(0.9,'#4a1006');g.addColorStop(1,'#1a0402');
+  x.fillStyle=g;x.fillRect(0,0,S,S);
+  for(let i=0;i<8;i++){const a=Math.random()*Math.PI*2;x.beginPath();x.moveTo(cx,cy);x.lineTo(cx+Math.cos(a)*S*0.5,cy+Math.sin(a)*S*0.5);x.strokeStyle='rgba(160,60,30,0.45)';x.lineWidth=0.5+Math.random();x.stroke();}
+  x.globalCompositeOperation='multiply';x.fillStyle=sevCol+'18';x.fillRect(0,0,S,S);x.globalCompositeOperation='source-over';
+  x.strokeStyle='rgba(236,238,247,0.14)';x.lineWidth=1;x.strokeRect(0.5,0.5,S-1,S-1);
+  const t=new THREE.CanvasTexture(c);t.needsUpdate=true;return t;
+}
+const SEV=['#4ade80','#facc15','#fb923c','#f87171','#c0392b'];
+const COUNTS=[12,4,8,2,4];
+const fundusMeshes=[];
+SEV.forEach((col,si)=>{
+  const cnt=COUNTS[si];
+  const tex=makeFundusTex(col);
+  for(let k=0;k<cnt;k++){
+    const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:0});
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.9),mat);
+    const xPos=(si-2)*3.0;
+    const yPos=(k-(cnt-1)/2)*1.05;
+    m.position.set(xPos,yPos,0);
+    m.userData.delay=(si*cnt+k)*55;
+    fundusGroup.add(m);fundusMeshes.push(m);
+  }
+});
+fundusGroup.visible=false;
+
+function drawDigit(canvasEl, transform){
+  const S=72,x=canvasEl.getContext('2d'),cx=S/2,cy=S/2;
+  x.fillStyle='#0a0a14';x.fillRect(0,0,S,S);
+  x.save();x.translate(cx,cy);
+  if(transform==='rotate') x.rotate(0.45);
+  if(transform==='flip') x.scale(-1,1);
+  if(transform==='zoom') x.scale(1.35,1.35);
+  x.strokeStyle='rgba(200,130,80,0.92)';x.lineWidth=5;x.lineCap='round';x.lineJoin='round';
+  x.beginPath();x.moveTo(-18,-18);x.lineTo(18,-18);x.lineTo(-2,22);x.stroke();
+  x.lineWidth=2.5;x.beginPath();x.moveTo(-8,-3);x.lineTo(10,-3);x.stroke();
+  x.restore();
+  x.strokeStyle='rgba(236,238,247,0.1)';x.lineWidth=1;x.strokeRect(0.5,0.5,S-1,S-1);
+}
+const augConfigs=[
+  {id:'aug-c0',transform:'none'},
+  {id:'aug-c1',transform:'rotate'},
+  {id:'aug-c2',transform:'flip'},
+  {id:'aug-c3',transform:'zoom'},
+];
+augConfigs.forEach(cfg=>drawDigit(document.getElementById(cfg.id),cfg.transform));
+
+const archGroup=new THREE.Group();world.add(archGroup);
+const LAYERS=[
+  {color:0x2563eb,w:2.6,h:0.14,d:2.6,y:2.2},
+  {color:0x0891b2,w:2.2,h:0.20,d:2.2,y:1.35},
+  {color:0x0891b2,w:1.7,h:0.16,d:1.7,y:0.55},
+  {color:0x7c3aed,w:1.1,h:0.12,d:1.1,y:-0.15},
+  {color:0x7c3aed,w:0.75,h:0.11,d:0.75,y:-0.75},
+  {color:0x6d28d9,w:0.55,h:0.10,d:0.55,y:-1.25},
+  {color:0xf59e0b,w:0.40,h:0.13,d:0.40,y:-1.72},
+];
+const slabs=[];
+LAYERS.forEach((l,i)=>{
+  const mat=new THREE.MeshStandardMaterial({color:l.color,transparent:true,opacity:0,emissive:l.color,emissiveIntensity:0.4,roughness:0.3,metalness:0.2});
+  const m=new THREE.Mesh(new THREE.BoxGeometry(l.w,l.h,l.d),mat);
+  m.position.set(0,l.y,0);m.userData.baseY=l.y;
+  archGroup.add(m);slabs.push(m);
+});
+archGroup.visible=false;
+
+// ── FIX 2: GRAPH REPOSITIONED EXCLUSIVELY TO RIGHT HALF OF SCREEN ──
+// ══════════════════════════════════════════════
+// TRAINING GRAPH — PROFESSIONAL VERSION
+// ══════════════════════════════════════════════
+
+const trainGroup = new THREE.Group();
+world.add(trainGroup);
+
+const graphWidth = 5.2;
+const graphHeight = 3.8;
+
+// ─────────────────────────────────────────────
+// AXES
+// ─────────────────────────────────────────────
+
+const axisMat = new THREE.LineBasicMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.25
+});
+
+const xAxis = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, -1.8, 0),
+    new THREE.Vector3(graphWidth, -1.8, 0)
+  ]),
+  axisMat
+);
+
+const yAxis = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, -1.8, 0),
+    new THREE.Vector3(0, 1.8, 0)
+  ]),
+  axisMat
+);
+
+trainGroup.add(xAxis);
+trainGroup.add(yAxis);
+
+// ─────────────────────────────────────────────
+// GRID LINES
+// ─────────────────────────────────────────────
+
+for(let i = 1; i <= 4; i++){
+
+  const y = lerp(-1.8, 1.8, i / 4);
+
+  const grid = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, y, 0),
+      new THREE.Vector3(graphWidth, y, 0)
+    ]),
+    new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.04
+    })
+  );
+
+  trainGroup.add(grid);
+}
+
+// ─────────────────────────────────────────────
+// TICKS
+// ─────────────────────────────────────────────
+
+for(let i = 0; i <= 5; i++){
+
+  const x = (graphWidth / 5) * i;
+
+  const tick = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(x, -1.8, 0),
+      new THREE.Vector3(x, -1.85, 0)
+    ]),
+    axisMat
+  );
+
+  trainGroup.add(tick);
+}
+
+for(let i = 0; i <= 4; i++){
+
+  const y = lerp(-1.8, 1.8, i / 4);
+
+  const tick = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-0.05, y, 0),
+      new THREE.Vector3(0, y, 0)
+    ]),
+    axisMat
+  );
+
+  trainGroup.add(tick);
+}
+
+// ─────────────────────────────────────────────
+// CURVES
+// ─────────────────────────────────────────────
+
+const EPOCHS = 80;
+
+const accPoints = [];
+const lossPoints = [];
+
+for(let e = 0; e < EPOCHS; e++){
+
+  const t = e / (EPOCHS - 1);
+
+  const x = lerp(0.1, graphWidth, t);
+
+  // ACCURACY CURVE
+  const acc =
+    -0.1 +
+    1.5 * (1 - Math.exp(-4.5 * t)) +
+    (Math.random() - 0.5) * 0.04;
+
+  accPoints.push(
+    new THREE.Vector3(
+      x,
+      acc,
+      0
+    )
+  );
+
+  // LOSS CURVE
+  const loss =
+    1.1 * Math.exp(-4.2 * t) -
+    1.45 +
+    (Math.random() - 0.5) * 0.03;
+
+  lossPoints.push(
+    new THREE.Vector3(
+      x,
+      loss,
+      0
+    )
+  );
+}
+
+// ─────────────────────────────────────────────
+// CURVE MATERIALS
+// ─────────────────────────────────────────────
+
+const accMat = new THREE.LineBasicMaterial({
+  color: 0x4ade80,
+  transparent: true,
+  opacity: 0
+});
+
+const lossMat = new THREE.LineBasicMaterial({
+  color: 0xf87171,
+  transparent: true,
+  opacity: 0
+});
+
+// ─────────────────────────────────────────────
+// CURVES
+// ─────────────────────────────────────────────
+
+const accLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(accPoints),
+  accMat
+);
+
+const lossLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(lossPoints),
+  lossMat
+);
+
+trainGroup.add(accLine);
+trainGroup.add(lossLine);
+
+// ─────────────────────────────────────────────
+// POSITIONING
+// ─────────────────────────────────────────────
+
+trainGroup.position.set(-0.8, 0, 0);
+
+trainGroup.visible = false;
+
+const confGroup=new THREE.Group();world.add(confGroup);
+const CM=[[47,1,1,0,0],[2,6,1,0,0],[2,1,22,1,1],[0,0,1,4,0],[0,0,1,0,9]];
+const cmCells=[];
+CM.forEach((row,ri)=>{
+  row.forEach((val,ci)=>{
+    const diag=ri===ci,col=diag?0x4ade80:0xf87171;
+    const mat=new THREE.MeshStandardMaterial({color:col,transparent:true,opacity:0,emissive:col,emissiveIntensity:Math.min(1,(val/(diag?50:5)))*0.7});
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(0.72,0.72),mat);
+    m.position.set((ci-2)*0.78,(2-ri)*0.78,0);
+    m.userData.targetOpacity=0.12+Math.min(0.82,(val/(diag?50:5))*0.9);
+    m.userData.delay=300+(ri*5+ci)*55;
+    confGroup.add(m);cmCells.push(m);
+  });
+});
+confGroup.visible=false;
+
+const TOTAL=14;
+const dotsEl=document.getElementById('dots');
+for(let i=0;i<TOTAL;i++){
+  const d=document.createElement('div');d.className='dot';d.dataset.s=i;
+  if(i===0)d.classList.add('active');dotsEl.appendChild(d);
+  d.addEventListener('click',()=>scrollToScene(i));
+}
+
+const CAM=[
+  [0,0,5.5,   0,0,0],    // S0
+  [2.2,0.5,4.4,0,0,0],   // S1
+  [0,0,2.8,   0,0,0],    // S2
+  [0,0,1.8,   0,0,0],    // S3: Translucent Scene
+  [0,0.1,0.30,0.04,0,-1], // S4: Inside
+  [0,0,0.25,  0,0,-1],   // S5: Inside
+  [0,0.3,4.2, 0,0,0],
+  [0,0,9.5,   0,0,0],
+  [0,0,8.0,   0,0,0],
+  [0,0,5.5,   0,0,0],
+  [2.5,0,6.5, 0,0,0],
+  [0,0,6.5,   0,0,0],
+  [-2,0,6.5,  0,0,0],
+  [0,0,8.5,   0,0,0],
+];
+
+let scrollY=0,targetScrollY=0,currentScene=0;
+window.addEventListener('scroll',()=>{
+  const max=document.documentElement.scrollHeight-window.innerHeight;
+  targetScrollY=window.scrollY/max;
+},{passive:true});
+
+const camPos=new THREE.Vector3(0,0,5.5);
+const camLook=new THREE.Vector3();
+const tPos=new THREE.Vector3(),tLook=new THREE.Vector3();
+function updateCamera(p){
+  const raw=p*(TOTAL-1);
+  const si=Math.floor(raw),sf=Math.min(si+1,TOTAL-1),t=easeInOut(clamp(raw-si,0,1));
+  const a=CAM[si],b=CAM[sf];
+  tPos.set(lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t));
+  tLook.set(lerp(a[3],b[3],t),lerp(a[4],b[4],t),lerp(a[5],b[5],t));
+  camPos.lerp(tPos,0.055);camLook.lerp(tLook,0.055);
+  camera.position.copy(camPos);camera.lookAt(camLook);
+}
+
+const animQ=[];
+function fadeTo(obj,prop,val,dur){
+  for(let i=animQ.length-1;i>=0;i--) if(animQ[i].obj===obj&&animQ[i].prop===prop) animQ.splice(i,1);
+  animQ.push({obj,prop,start:obj[prop],end:val,dur:dur*1000,t0:performance.now()});
+}
+function processAnims(){
+  const now=performance.now();
+  for(let i=animQ.length-1;i>=0;i--){
+    const task=animQ[i],t=clamp((now-task.t0)/task.dur,0,1);
+    task.obj[task.prop]=lerp(task.start,task.end,easeInOut(t));
+    if(t>=1) animQ.splice(i,1);
+  }
+}
+
+let diseaseActive=false,diseaseTime=0;
+function resetDisease(){
+  diseaseTime=0;
+  microGroup.children.forEach(m=>{m.material.opacity=0;});
+  hemGroup.children.forEach(m=>{m.material.opacity=0;m.scale.setScalar(0.05);});
+}
+function updateDisease(dt){
+  if(!diseaseActive) return;
+  diseaseTime+=dt;const ms=diseaseTime*1000;
+  microGroup.children.forEach(m=>{m.material.opacity=easeOut3(clamp((ms-m.userData.delay)/1100,0,1))*0.94;});
+  hemGroup.children.forEach(m=>{
+    const t=easeOut3(clamp((ms-m.userData.delay)/2200,0,1));
+    m.material.opacity=t*m.userData.targetOpacity;m.scale.setScalar(0.05+t*0.95);
+  });
+}
+
+let metricsStarted=false;
+function startMetrics(){
+  if(metricsStarted) return;metricsStarted=true;
+  const t0=performance.now(),dur=2200;
+  const els={acc:document.getElementById('mv-acc'),f1:document.getElementById('mv-f1'),auc:document.getElementById('mv-auc')};
+  const tgt={acc:45.2,f1:20.6,auc:0.370};
+  function tick(){
+    const p=Math.min((performance.now()-t0)/dur,1),e=easeOut3(p);
+    els.acc.textContent=(tgt.acc*e).toFixed(1)+'%';
+    els.f1.textContent=(tgt.f1*e).toFixed(1)+'%';
+    els.auc.textContent=(tgt.auc*e).toFixed(3);
+    if(p<1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+let cmStarted=false;
+function startCM(){
+  if(cmStarted) return;cmStarted=true;
+  const t0=performance.now();
+  function tick(){
+    const now=performance.now();
+    cmCells.forEach(m=>{m.material.opacity=m.userData.targetOpacity*easeOut3(clamp((now-t0-m.userData.delay)/600,0,1));});
+    if(cmCells.some(m=>m.material.opacity<m.userData.targetOpacity-0.01)) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+let fundusStarted=false;
+function startFundus(){
+  if(fundusStarted) return;fundusStarted=true;
+  const t0=performance.now();
+  function tick(){
+    const now=performance.now();
+    fundusMeshes.forEach(m=>{m.material.opacity=0.72*easeOut3(clamp((now-t0-m.userData.delay)/480,0,1));});
+    if(fundusMeshes.some(m=>m.material.opacity<0.70)) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+const LABELS=[
+  'Scene 01 — The Human Eye',
+  'Scene 02 — Approaching',
+  'Scene 03 — Entering',
+  'Scene 04 — The Retina',
+  'Scene 05 — Blood Supply',
+  'Scene 06 — Diabetic Retinopathy',
+  'Scene 07 — Early Detection',
+  'Act 05 — Fundus Photography',
+  'Act 05 — Class Distribution',
+  'Act 06 — Preprocessing & Augmentation',
+  'Act 07 — EfficientNetB3 Architecture',
+  'Act 08 — Training',
+  'Act 08 — Results',
+  'Act 09 — Try the Model',
+];
+
+function hideUI(){
+  document.querySelectorAll('.callout,.scene-card,#disease-alert,#act-transition,#sev-scale,#metrics-panel,#upload-zone,#aug-ui').forEach(e=>e.classList.remove('visible'));
+  document.getElementById('scroll-hint').classList.remove('visible');
+}
+
+function onScene(s){
+  hideUI();
+  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===s));
+  document.getElementById('scene-counter').textContent=`${String(s+1).padStart(2,'0')} / ${String(TOTAL).padStart(2,'0')}`;
+  const sl=document.getElementById('scene-label');sl.textContent=LABELS[s];sl.classList.add('visible');
+
+  setTimeout(()=>{
+    if(s===0){
+      document.getElementById('scroll-hint').classList.add('visible');
+      ['co-iris','co-cornea','co-sclera'].forEach(id=>document.getElementById(id).classList.add('visible'));
+      document.getElementById('sc0').classList.add('visible');
+    }
+    if(s===1) document.getElementById('sc1').classList.add('visible');
+    if(s===3) document.getElementById('sc3').classList.add('visible');
+    if(s===4) document.getElementById('sc4').classList.add('visible');
+    if(s===5) document.getElementById('disease-alert').classList.add('visible');
+    if(s===6){document.getElementById('sc6').classList.add('visible');document.getElementById('act-transition').classList.add('visible');}
+    if(s===7) document.getElementById('sc7').classList.add('visible');
+    if(s===8){document.getElementById('sc8').classList.add('visible');document.getElementById('sev-scale').classList.add('visible');startFundus();}
+    if(s===9) document.getElementById('aug-ui').classList.add('visible');
+    if(s===10) document.getElementById('sc10').classList.add('visible');
+    if(s===11) {document.getElementById('sc11').classList.add('visible');document.getElementById('graph-labels').classList.add('visible');}
+    if(s===12){document.getElementById('sc12').classList.add('visible');document.getElementById('metrics-panel').classList.add('visible');startCM();startMetrics();}
+    if(s===13) document.getElementById('upload-zone').classList.add('visible');
+  },300);
+
+  const outside = s <= 2 || s === 6; 
+  const translucent = s === 3;       
+  const inside = s >= 4 && s <= 5;   
+
+  eyeGroup.visible = s <= 6;
+
+  if (outside) {
+    fadeTo(scleraMat,'opacity', 1.0, 0.9);
+    fadeTo(innerScleraMat,'opacity', 0, 0.6);
+    fadeTo(corneaMat,'opacity', 0.24, 0.7);
+    iris.visible = true; limbusObj.visible = true;
+    fadeTo(irisMat, 'opacity', 1.0, 0.8);
+    fadeTo(limbusMat, 'opacity', 1.0, 0.8);
+    fadeTo(retinaMat, 'opacity', 0, 1.0);
+    vesselGroup.children.forEach(m=>fadeTo(m.material,'opacity',0,1.0));
+    fadeTo(retinaL,'intensity',0,1.2);
+  } else if (translucent) {
+    fadeTo(scleraMat,'opacity', 0.12, 0.9);
+    fadeTo(innerScleraMat,'opacity', 0, 0.6);
+    fadeTo(corneaMat,'opacity', 0.05, 0.7);
+    iris.visible = true; limbusObj.visible = true;
+    fadeTo(irisMat, 'opacity', 0.15, 0.8);
+    fadeTo(limbusMat, 'opacity', 0.15, 0.8);
+    fadeTo(retinaMat, 'opacity', 1.0, 1.0);
+    vesselGroup.children.forEach(m=>fadeTo(m.material,'opacity',0.88,1.0));
+    fadeTo(retinaL,'intensity',2.4,1.2);
+  } else if (inside) {
+    fadeTo(scleraMat,'opacity', 0, 0.8);
+    fadeTo(innerScleraMat,'opacity', 1.0, 0.8);
+    fadeTo(corneaMat,'opacity', 0, 0.7);
+    iris.visible = false; limbusObj.visible = false;
+    fadeTo(retinaMat, 'opacity', 1.0, 1.0);
+    vesselGroup.children.forEach(m=>fadeTo(m.material,'opacity',0.88,1.0));
+    fadeTo(retinaL,'intensity',2.4,1.2);
+  }
+
+  diseaseActive=s===5;
+  microGroup.visible=s===5;hemGroup.visible=s===5;
+  if(s===5) resetDisease();
+  if(s!==5) resetDisease();
+
+  fundusGroup.visible=s===7||s===8;
+  archGroup.visible=s===10;
+  trainGroup.visible=s===11;
+  confGroup.visible=s===12;
+
+  fadeTo(tealL,'intensity',s===10?2.5:s===9?1.2:0,1.0);
+  fadeTo(amberL,'intensity',s===11?2.2:s===12?1.6:0,1.0);
+
+  if(s===7) fundusMeshes.forEach(m=>fadeTo(m.material,'opacity',0.3,0.8));
+  if(s!==7&&s!==8) fundusMeshes.forEach(m=>fadeTo(m.material,'opacity',0,0.5));
+
+  slabs.forEach((m,i)=>fadeTo(m.material,'opacity',s===10?0.82:0,0.4+i*0.12));
+  fadeTo(lossMat,'opacity',s===11?0.9:0,0.8);
+  fadeTo(accMat,'opacity',s===11?0.9:0,0.8);
+
+  if(s!==12){cmCells.forEach(m=>{m.material.opacity=0;});cmStarted=false;}
+  if(s!==12) metricsStarted=false;
+}
+
+function scrollToScene(s){
+  const max=document.documentElement.scrollHeight-window.innerHeight;
+  window.scrollTo({top:(s/(TOTAL-1))*max,behavior:'smooth'});
+}
+document.getElementById('btn-next').onclick=()=>scrollToScene(Math.min(currentScene+1,TOTAL-1));
+document.getElementById('btn-prev').onclick=()=>scrollToScene(Math.max(currentScene-1,0));
+
+window.handleFile = async function(file) {
+  if(!file) return;
+
+  const box = document.getElementById('result-box');
+  const gradeEl = document.getElementById('result-grade');
+  const subEl = document.getElementById('result-sub');
+  const bar = document.getElementById('result-bar');
+  
+  // Show loading state
+  box.classList.add('show');
+  gradeEl.textContent = "Analyzing...";
+  gradeEl.style.color = "#eceef7";
+  subEl.textContent = "Connecting to FastAPI...";
+  bar.style.width = '20%';
+  bar.style.background = "#eceef7";
+
+  // Prepare the file for upload
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    // Call your FastAPI server
+    const response = await fetch('http://127.0.0.1:8000/predict', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) throw new Error("Server Error");
+
+    const data = await response.json();
+
+    // Map severity levels to colors matching your theme
+    const colors = ['#4ade80','#facc15','#fb923c','#f87171','#c0392b'];
+    
+    // Update the UI with real data from the API
+    gradeEl.textContent = data.prediction;
+    gradeEl.style.color = colors[data.severity_level];
+    subEl.textContent = `API Confidence: ${(data.confidence * 100).toFixed(1)}%`;
+    bar.style.background = colors[data.severity_level];
+    
+    // Animate the confidence bar
+    setTimeout(() => {
+      bar.style.width = (data.confidence * 100) + '%';
+    }, 100);
+
+  } catch (error) {
+    gradeEl.textContent = "Error";
+    gradeEl.style.color = "#f87171";
+    subEl.textContent = "Check if 'python api/main.py' is running.";
+    bar.style.width = '100%';
+    bar.style.background = "#f87171";
+    console.error("API Error:", error);
+  }
+};
+
+let time=0,prevTime=performance.now();
+function sceneFrom(p){return Math.min(Math.floor(p*TOTAL),TOTAL-1);}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const now=performance.now();
+  const dt=Math.min((now-prevTime)/1000,0.05);prevTime=now;time+=dt;
+
+  scrollY+=(targetScrollY-scrollY)*0.055;
+  updateCamera(scrollY);
+
+  const ns=sceneFrom(scrollY);
+  if(ns!==currentScene){currentScene=ns;onScene(ns);}
+
+  processAnims();
+  updateDisease(dt);
+
+  const eyeOutside=currentScene<=2||currentScene===6;
+  if(eyeOutside&&eyeGroup.visible){eyeGroup.rotation.y=Math.sin(time*0.28)*0.025;eyeGroup.rotation.x=Math.sin(time*0.18)*0.014;}
+  else{eyeGroup.rotation.y*=0.94;eyeGroup.rotation.x*=0.94;}
+
+  if(diseaseActive) diseaseL.intensity=1.8+Math.sin(time*2.5)*0.4;
+
+  if(archGroup.visible) slabs.forEach((m,i)=>{m.position.y=m.userData.baseY+Math.sin(time*0.6+i*0.8)*0.03;});
+
+  renderer.render(world,camera);
+}
+
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+
+const lbar=document.getElementById('lbar');const lsub=document.getElementById('lsub');let lp=0;
+const ltick=(n,msg)=>{lp+=n;lbar.style.width=lp+'%';lsub.textContent=msg;};
+ltick(10,'Building sclera…');    await new Promise(r=>setTimeout(r,50));
+ltick(15,'Sculpting iris…');     await new Promise(r=>setTimeout(r,50));
+ltick(15,'Growing vessels…');    await new Promise(r=>setTimeout(r,80));
+ltick(15,'Texturing retina…');   await new Promise(r=>setTimeout(r,50));
+ltick(15,'Building ML scenes…'); await new Promise(r=>setTimeout(r,60));
+ltick(15,'Preparing pipeline…'); await new Promise(r=>setTimeout(r,60));
+ltick(15,'Lighting scene…');
+document.getElementById('loader').classList.add('hidden');
+onScene(0);animate();
+</script>
+</body>
+</html>
