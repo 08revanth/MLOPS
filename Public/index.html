@@ -1178,7 +1178,7 @@ window.handleFile = async function(file) {
 
   try {
     // Call your FastAPI server
-    const response = await fetch(' https://ongoing-agony-cosmic.ngrok-free.dev', {
+    const response = await fetch(' https://ongoing-agony-cosmic.ngrok-free.dev/predict', {
       method: 'POST',
       body: formData
     });
